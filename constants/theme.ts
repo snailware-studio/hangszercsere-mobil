@@ -18,13 +18,34 @@ export const Colors = {
     tabIconSelected: tintColorLight,
   },
   dark: {
+    cardBg: '#2A1F3B',
+    navbarBg: '#231C32',
+    textPrimary: '#EDE8F7',
+    textSecondary: '#B9A7D1',
+    accent: '#9B59D1',
+    accentHover: '#BB86FC',
+
     text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
+    background: '#1A1125',
+    tint: '#1B1226',
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
   },
+};
+
+const colors = {
+  dark: {
+  },
+  light: {
+    siteBg: '#F5F0FA',
+    cardBg: '#F8F5FC',
+    navbarBg: '#EDE6F7',
+    textPrimary: '#2A1F3B',
+    textSecondary: '#5C4A72',
+    accent: '#8E44AD',
+    accentHover: '#A569E6',
+  }
 };
 
 export const Fonts = Platform.select({
