@@ -1,21 +1,20 @@
+import { offline_mode } from '@/constants/debug';
 import { router } from 'expo-router';
+import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useScroll } from '../context/ScrollContext';
-
-import { offline_mode } from '@/constants/debug';
-
 import { Colors } from '../constants/theme';
+import { useScroll } from '../context/ScrollContext';
 
 type Instrument = {
   id: number;
@@ -23,25 +22,101 @@ type Instrument = {
   price: number;
   brand: string;
   category: string;
+  ai_rating: number;
   images: string[];
 };
+
+/* ✅ this survives tab switches, but resets when the app is closed */
+let splashAlreadyShown = false;
+
+/* ---------------- STAR RATING ---------------- */
+
+function Stars({ rating }: { rating: number }) {
+  const max = 5;
+  const size = 20;
+
+  return (
+    <View style={{ flexDirection: 'row' }}>
+      {Array.from({ length: max }).map((_, i) => {
+        const fill = Math.max(0, Math.min(1, rating - i)); // 0..1
+
+        return (
+          <View
+            key={i}
+            style={{
+              width: size,
+              height: size,
+            }}
+          >
+            {/* base gray star */}
+            <Text
+              style={{
+                position: 'absolute',
+                color: '#666',
+                fontSize: size,
+              }}
+            >
+              ★
+            </Text>
+
+            {/* clipped yellow part */}
+            {fill > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  overflow: 'hidden',
+                  width: size * fill,
+                  height: size,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#FFD700',
+                    fontSize: size,
+                  }}
+                >
+                  ★
+                </Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/* --------------------------------------------- */
 
 export default function HomeScreen() {
   const [data, setData] = useState<Instrument[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSplash, setShowSplash] = useState(!splashAlreadyShown);
 
   const { handleScroll } = useScroll();
 
   useEffect(() => {
-    loadInstruments();
+    if (!splashAlreadyShown) {
+      splashAlreadyShown = true;
+
+      const t = setTimeout(() => {
+        setShowSplash(false);
+        loadInstruments();
+      }, 2500);
+
+      return () => clearTimeout(t);
+    } else {
+      setShowSplash(false);
+      loadInstruments();
+    }
   }, []);
 
   async function loadInstruments() {
+    setLoading(true);
 
-    if (!offline_mode)
-    {
+    if (!offline_mode) {
       try {
         const res = await fetch('https://hangszercsere.hu/api/instruments');
         if (!res.ok) throw new Error('API died');
@@ -56,18 +131,42 @@ export default function HomeScreen() {
         setLoading(false);
         setRefreshing(false);
       }
-    }
-    else
-    {
-      const json: Instrument[] = [ { 'brand': "fasz", 'category': "kategória", 'id': 0, 'images':[], 'price': 10000, 'title': 'fekete fasz cím' } ]
+    } else {
+      const json: Instrument[] = [
+        {
+          brand: 'fasz',
+          category: 'kategória',
+          id: 0,
+          images: [],
+          price: 10000,
+          title: 'fekete fasz cím',
+          ai_rating: 3.6,
+        },
+      ];
+
       setData(json);
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
   function onRefresh() {
     setRefreshing(true);
     loadInstruments();
+  }
+
+  if (showSplash) {
+    return (
+      <View style={styles.splashContainer}>
+        <LottieView
+          source={require('../assets/animations/splash.json')}
+          autoPlay
+          loop={false}
+          style={styles.lottie}
+        />
+        <Text style={styles.splashTitle}>Hangszercsere</Text>
+      </View>
+    );
   }
 
   if (loading) {
@@ -80,19 +179,17 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Animated.ScrollView
+      <ScrollView
         style={styles.container}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        onScroll={(e) =>
-          handleScroll(e.nativeEvent.contentOffset.y)
-        }
+        onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
       >
         {error && <Text style={styles.error}>{error}</Text>}
 
-        {data.map(item => {
+        {data.map((item) => {
           const imageUrl = item.images?.length
             ? `https://hangszercsere.hu/uploads/${item.images[0]}`
             : null;
@@ -104,10 +201,7 @@ export default function HomeScreen() {
               onPress={() => router.push(`/listing/${item.id}`)}
             >
               {imageUrl && (
-                <Image
-                  source={{ uri: imageUrl }}
-                  style={styles.image}
-                />
+                <Image source={{ uri: imageUrl }} style={styles.image} />
               )}
 
               <View style={styles.info}>
@@ -115,14 +209,19 @@ export default function HomeScreen() {
                 <Text style={styles.meta}>
                   {item.brand} • {item.category}
                 </Text>
-                <Text style={styles.price}>
-                  {item.price.toLocaleString()} Ft
-                </Text>
+
+                <View style={styles.meta2}>
+                  <Text style={styles.price}>
+                    {item.price.toLocaleString()} Ft
+                  </Text>
+
+                  <Stars rating={item.ai_rating} />
+                </View>
               </View>
             </Pressable>
           );
         })}
-      </Animated.ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -131,6 +230,27 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: Colors.dark.background,
+  },
+
+  splashContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+
+  lottie: {
+    width: 300,
+    height: 300,
+  },
+
+  splashTitle: {
+    color: Colors.dark.textPrimary,
+    fontSize: 28,
+    fontWeight: '700',
+    marginTop: 20,
+    textAlign: 'center',
   },
 
   container: {
@@ -163,6 +283,15 @@ const styles = StyleSheet.create({
   meta: {
     color: Colors.dark.textSecondary,
     marginTop: 4,
+  },
+
+  meta2: {
+    color: Colors.dark.textSecondary,
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    alignItems: 'center',
   },
 
   price: {
